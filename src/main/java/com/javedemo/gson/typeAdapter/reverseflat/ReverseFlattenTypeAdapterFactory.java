@@ -1,4 +1,4 @@
-package com.javedemo.gson.typeAdapter.flat;
+package com.javedemo.gson.typeAdapter.reverseflat;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
@@ -13,12 +13,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * 反向拉平.
+ * 将 扁平的bean 序列化成复杂的json
  * Created by Tishka17 on 18.05.2016.
  * https://github.com/Tishka17/gson-flatten/blob/master/gson-flatten/src/main/java/org/itishka/gsonflatten/FlattenTypeAdapterFactory.java
  */
-public class FlattenTypeAdapterFactory implements TypeAdapterFactory {
+public class ReverseFlattenTypeAdapterFactory implements TypeAdapterFactory {
 
-    public FlattenTypeAdapterFactory() {
+    public ReverseFlattenTypeAdapterFactory() {
     }
 
     public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
@@ -154,19 +156,19 @@ public class FlattenTypeAdapterFactory implements TypeAdapterFactory {
 
     private ArrayList<FlattenCacheItem> buildCache(Class<?> root, Gson gson) {
         ArrayList<FlattenCacheItem> cache = new ArrayList<>();
-        final List<Field> fields = getAnnotatedFields(root, Flatten.class);
+        final List<Field> fields = getAnnotatedFields(root, ReverseFlatten.class);
         if (fields.size() == 0) {
             return cache;
         }
-        Flatten flatten;
+        ReverseFlatten reverseFlatten;
         Type type;
         String path;
         FlattenCacheItem cacheItem;
         FieldNamingStrategy fieldNamingStrategy = gson.fieldNamingStrategy();
 
         for (Field field : fields) {
-            flatten = field.getAnnotation(Flatten.class);
-            path = flatten.value();
+            reverseFlatten = field.getAnnotation(ReverseFlatten.class);
+            path = reverseFlatten.value();
             type = field.getGenericType();
             String name = fieldNamingStrategy.translateName(field);
             cacheItem = new FlattenCacheItem(path.split("::", -1), gson.getAdapter(type.getClass()), name);

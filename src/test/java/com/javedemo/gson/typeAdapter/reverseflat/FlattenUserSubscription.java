@@ -1,14 +1,14 @@
-package com.javedemo.gson.typeAdapter.flat;
+package com.javedemo.gson.typeAdapter.reverseflat;
 
 public class FlattenUserSubscription {
     String name;
 
     // new!
 //        @com.google.gson.annotations.JsonAdapter(AddressSerializer.class)
-    @com.javedemo.gson.typeAdapter.flat.Flatten("12")
+    @ReverseFlatten("12")
     Address address;
 
-    @Flatten("12")
+    @ReverseFlatten("12")
     Address address1;
 
     public String getName() {

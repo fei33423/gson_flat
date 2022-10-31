@@ -1,4 +1,4 @@
-package com.javedemo.gson.typeAdapter;
+package com.javedemo.gson.jsonAdapter;
 
 
 import java.lang.annotation.ElementType;
@@ -8,10 +8,11 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Flatten {
+public @interface FieldNamePrefix {
+
     /**
      * 前缀
      * @return
      */
-    String value() default "";
+    String value();
 }

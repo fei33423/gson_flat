@@ -1,4 +1,4 @@
-package com.javedemo.gson.typeAdapter.flat;
+package com.javedemo.gson.typeAdapter.reverseflat;
 
 import com.google.gson.Gson;
 import org.testng.annotations.Test;
@@ -10,7 +10,7 @@ import static org.testng.Assert.*;
  */
 public class SerializerOneTest {
     private class ClassFlat {
-        @Flatten("x::y")
+        @ReverseFlatten("x::y")
         int test;
 
         @Override
@@ -53,23 +53,23 @@ public class SerializerOneTest {
         one.test = 13;
 
         final Gson gson = Helper.createFlatteningGson();
-        final Gson gson_default = Helper.createDefaultGson();
 
         String res = gson.toJson(one);
-        System.out.println("res="+res);
+//        simpleBeanToJson={"x":{"y":13}}
+        System.out.println("simpleBeanToJson="+res);
         assertNotNull(res);
         assertNotEquals("", res);
-        ClassComplex complex = gson_default.fromJson(res, ClassComplex.class);
+        ClassComplex complex = gson.fromJson(res, ClassComplex.class);
         assertNotNull(complex.x);
         assertEquals(complex.x.y, one.test);
         assertNull(complex.test);
         assertNull(complex.y);
-        String s = gson_default.toJson(complex);
-        System.out.println("complex="+s);
-        System.out.println("complex="+gson.toJson(complex));
+        String s = gson.toJson(complex);
+//        complexBeanToComplexJson={"x":{"y":13}}
+        System.out.println("complexBeanToComplexJson="+s);
 
         ClassFlat classFlat = gson.fromJson(s, ClassFlat.class);
-
-        System.out.println("classFat="+classFlat);
+// complexJsonToSimpleBean=ClassFlat{test=13}
+        System.out.println("complexJsonToSimpleBean="+classFlat);
     }
 }

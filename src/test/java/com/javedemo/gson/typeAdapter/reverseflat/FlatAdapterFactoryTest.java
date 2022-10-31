@@ -1,4 +1,4 @@
-package com.javedemo.gson.typeAdapter.flat;
+package com.javedemo.gson.typeAdapter.reverseflat;
 
 
 import com.google.gson.Gson;
@@ -11,17 +11,17 @@ import java.util.List;
 
 import static org.testng.Assert.*;
 
-public class SerializerTwoTest {
+public class FlatAdapterFactoryTest {
     private class ClassFlat {
-        @Flatten("x::y")
+        @ReverseFlatten("x::y")
         int testY;
-        @Flatten("x::z")
+        @ReverseFlatten("x::z")
         int testZ;
         @SerializedName("no")
         Integer testNo;
-        @Flatten("array::0::y")
+        @ReverseFlatten("array::0::y")
         int testArrayY;
-        @Flatten("deep::0::10::0::x::1::z")
+        @ReverseFlatten("deep::0::10::0::x::1::z")
         String testArrayZ;
     }
 
@@ -97,5 +97,25 @@ public class SerializerTwoTest {
                 .get("z").getAsString());
     }
 
+
+    @Test
+    public void test1() {
+        Gson defaultGson = Helper.createDefaultGson();
+        FlattenUserSubscription fu = new FlattenUserSubscription();
+        Address addRess=new Address();
+        addRess.setCity("city1");
+
+        fu.setAddress(addRess);
+        Address addRess1=new Address();
+        addRess1.setCity("city2");
+        Home home=new Home();
+        home.setHomeOwner("homeOwner");
+        addRess1.setHome(home);
+        fu.setAddress1(addRess1);
+
+
+        String s = defaultGson.toJson(fu);
+        System.out.println(s);
+    }
 
 }

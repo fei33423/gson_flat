@@ -1,4 +1,4 @@
-package com.javedemo.gson.typeAdapter.flat;
+package com.javedemo.gson.typeAdapter.reverseflat;
 
 public class Address {
     String city;

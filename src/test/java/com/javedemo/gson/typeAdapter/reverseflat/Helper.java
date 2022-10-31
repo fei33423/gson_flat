@@ -1,4 +1,4 @@
-package com.javedemo.gson.typeAdapter.flat;
+package com.javedemo.gson.typeAdapter.reverseflat;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -6,7 +6,7 @@ import com.google.gson.GsonBuilder;
 public class Helper {
     public static Gson createFlatteningGson() {
         return new GsonBuilder()
-                .registerTypeAdapterFactory(new FlattenTypeAdapterFactory())
+                .registerTypeAdapterFactory(new ReverseFlattenTypeAdapterFactory())
                 .create();
     }
 

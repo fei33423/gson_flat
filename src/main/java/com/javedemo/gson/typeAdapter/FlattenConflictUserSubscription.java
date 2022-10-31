@@ -4,8 +4,6 @@ public class FlattenConflictUserSubscription {
     String name;
     String city;
 
-    // new!
-//        @com.google.gson.annotations.JsonAdapter(AddressSerializer.class)
     @Flatten
     Address address;
 

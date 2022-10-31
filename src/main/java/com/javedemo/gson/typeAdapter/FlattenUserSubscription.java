@@ -3,8 +3,7 @@ package com.javedemo.gson.typeAdapter;
 public class FlattenUserSubscription {
     String name;
 
-    // new!
-//        @com.google.gson.annotations.JsonAdapter(AddressSerializer.class)
+
     @Flatten
     Address address;
 
