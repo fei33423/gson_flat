@@ -437,31 +437,23 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 
                         InterfaceBoundedField interfaceBoundedField = interfaceFieldParser.getBoundedFildsForWrite(flatReflectionTypeAdapterFactory);
 
-                        List<String> prefixs = Lists.newArrayList();
-                        for (Field field : boundField.fieldPath) {
-                            FieldNamePrefix annotation = field.getAnnotation(FieldNamePrefix.class);
-                            if (annotation != null) {
-                                prefixs.add(annotation.value());
-                            }
-                        }
-//                            boundField.fieldPath.addAll(boundedField.)
+
 
                         Object interfaceObject = boundField.getObject(value);
 
                         if (interfaceObject == null) {
                             continue;
                         }
-                        String tempPrefix = Joiner.on(".").join(prefixs);
-                        prefix = StringUtils.isEmpty(prefix) ? tempPrefix : prefix + "." + tempPrefix;
 
+                        String nextPrefix = StringUtils.isEmpty(prefix) ? boundField.name : prefix + "." + boundField.name;
 
-                        writer.name(StringUtils.isEmpty(prefix) ? interfaceBoundedField.typeName : prefix + "." + interfaceBoundedField.typeName);
+                        writer.name(nextPrefix + "." + interfaceBoundedField.typeName);
                         TypeAdapters.STRING.write(writer, interfaceBoundedField.typeValue);
 
 
                         // 填充字段
                         Map<String, ObjectPathBoundedField> objectPathBoundedFields = interfaceBoundedField.objectPathBoundedFields;
-                        writeField(objectPathBoundedFields, prefix, writer, interfaceObject);
+                        writeField(objectPathBoundedFields, nextPrefix, writer, interfaceObject);
 //                        for (ObjectPathBoundedField interfaceField : objectPathBoundedFields.values()) {
 //                            if (interfaceField.typeAdapter instanceof FlatReflectionTypeAdapter){
 //                                Object interfaceObjectOfInterface = interfaceField.getObject(interfaceObject);

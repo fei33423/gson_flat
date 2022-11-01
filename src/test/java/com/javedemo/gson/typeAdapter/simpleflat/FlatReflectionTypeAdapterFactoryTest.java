@@ -94,11 +94,21 @@ public class FlatReflectionTypeAdapterFactoryTest {
         }
     }
 
+    /**
+     * 接口序列化,但是丢失了信息. 动态类型信息.
+     */
     @Test
     public void testPersonToJsonByOriginalGson() {
-        String actual = new Gson().toJson(getPerson());
+        String actual = new Gson().toJson(getClassRoom());
         System.out.println("actual=" + actual);
-         String expectedJsonOriginal = "{\"name\":\"教室\",\"frontDoor\":{\"doorName\":\"前门\",\"upperWindow\":{\"windowName\":\"前门上玻璃\"}},\"backDoor\":{\"doorName\":\"后门\",\"upperWindow\":{\"windowName\":\"后门上玻璃\",\"material\":{\"materialName\":\"后门下玻璃天然材料\"}},\"lowerWindow\":{\"windowName\":\"后门上玻璃\"}}}";
+         String expectedJsonOriginal = "{\"name\":\"教室\",\"frontDoor\":{\"doorName\":\"前门\",\"upperWindow\":{\"windowName\":\"前门上玻璃\"}}," +
+                 "\"backDoor\":{\"doorName\":\"后门\"," +
+                    "\"upperWindow\":{\"windowName\":\"后门上玻璃\"," +
+                        "\"imaterial\":{}}," +
+                    "\"ilowerWindow\":{\"windowName\":\"后门下玻璃\"," +
+                            "\"imaterial\":{\"materialName\":\"后门下玻璃天然材料\"}}" +
+                 "}" +
+                 "}";
 
 
         Assert.assertEquals(actual, expectedJsonOriginal);
@@ -107,9 +117,9 @@ public class FlatReflectionTypeAdapterFactoryTest {
 
     @Test
     public void testPerson() {
-        ClassRoom person = getPerson();
+        ClassRoom person = getClassRoom();
 
-        String expectedJson = "{\"name\":\"教室\",\"doorName\":\"前门\",\"windowName\":\"前门上玻璃\",\"backDoorPrefix.doorName\":\"后门\",\"backDoorPrefix.windowName\":\"后门上玻璃\",\"backDoorPrefix.iMaterialPrefix.IMaterialType\":\"纯天然材料\",\"backDoorPrefix.iMaterialPrefix.materialName\":\"后门下玻璃天然材料\",\"backDoorPrefix.iMaterialPrefix.backDoorPrefix.lowerWindowPrefix.IWindowType\":\"window_实现1\",\"backDoorPrefix.iMaterialPrefix.backDoorPrefix.lowerWindowPrefix.windowName\":\"后门上玻璃\"}";
+        String expectedJson = "{\"name\":\"教室\",\"doorName\":\"前门\",\"windowName\":\"前门上玻璃\",\"backDoorPrefix.doorName\":\"后门\",\"backDoorPrefix.windowName\":\"后门上玻璃\",\"backDoorPrefix.iMaterialPrefix.IMaterialType\":\"纯天然材料\",\"backDoorPrefix.lowerWindowPrefix.IWindowType\":\"window_实现1\",\"backDoorPrefix.lowerWindowPrefix.windowName\":\"后门下玻璃\",\"backDoorPrefix.lowerWindowPrefix.iMaterialPrefix.IMaterialType\":\"纯天然材料\",\"backDoorPrefix.lowerWindowPrefix.iMaterialPrefix.materialName\":\"后门下玻璃天然材料\"}";
 
 
         String actual = gson.toJson(person);
@@ -123,7 +133,7 @@ public class FlatReflectionTypeAdapterFactoryTest {
     }
 
 
-    private ClassRoom getPerson() {
+    private ClassRoom getClassRoom() {
         ClassRoom person = new ClassRoom();
 
 
@@ -133,18 +143,21 @@ public class FlatReflectionTypeAdapterFactoryTest {
         person.frontDoor.upperWindow = new Window();
         person.frontDoor.upperWindow.windowName = "前门上玻璃";
 
+
         person.backDoor=new Door();
         person.backDoor.doorName="后门";
         person.backDoor.upperWindow=new Window();
         person.backDoor.upperWindow.windowName = "后门上玻璃";
-        person.backDoor.upperWindow.material =new NatureMaterial();
+        //空对象
+        person.backDoor.upperWindow.imaterial =new NatureMaterial();
+
         Window lowerWindow = new Window();
-        lowerWindow.windowName = "后门上玻璃";
-        person.backDoor.lowerWindow= lowerWindow;
+        lowerWindow.windowName = "后门下玻璃";
+        person.backDoor.ilowerWindow = lowerWindow;
 
         NatureMaterial material = new NatureMaterial();
         material.materialName="后门下玻璃天然材料";
-        person.backDoor.upperWindow.material = material;
+        lowerWindow.imaterial =material;
         return person;
     }
 
@@ -195,10 +208,60 @@ public class FlatReflectionTypeAdapterFactoryTest {
         lowerWindow.windowName= "后门下玻璃";
         NatureMaterial material = new NatureMaterial();
         material.materialName="后门下玻璃纯天然材料";
-        lowerWindow.material= material;
-        personWithTwoBag.backDoor.lowerWindow = lowerWindow;
+        lowerWindow.imaterial = material;
+        personWithTwoBag.backDoor.ilowerWindow = lowerWindow;
 
         return personWithTwoBag;
+    }
+
+
+    private ClassChangedRoom getClassRoomChanedWithTwoDoors() {
+        ClassChangedRoom personWithTwoBag = new ClassChangedRoom();
+
+
+        personWithTwoBag.name = "第15班";
+        personWithTwoBag.doorName = "前门";
+        personWithTwoBag.upperWindow = new Window();
+        personWithTwoBag.upperWindow.windowName = "前门上玻璃";
+
+        personWithTwoBag.backDoor = new Door();
+        personWithTwoBag.backDoor.doorName="后门";
+        personWithTwoBag.backDoor.upperWindow = new Window();
+        personWithTwoBag.backDoor.upperWindow.windowName = "后门上玻璃";
+        Window lowerWindow = new Window();
+        lowerWindow.windowName= "后门下玻璃";
+        NatureMaterial material = new NatureMaterial();
+        material.materialName="后门下玻璃纯天然材料";
+        lowerWindow.imaterial = material;
+        personWithTwoBag.backDoor.ilowerWindow = lowerWindow;
+
+        return personWithTwoBag;
+    }
+
+    @Test
+    public void testPersonWithTwoDoorsAndInterfaceByChangeClass() {
+
+        ClassRoom classRoom = getClassRoomWithTwoDoors();
+
+
+        String expectedJson = "{\"name\":\"第15班\",\"doorName\":\"前门\",\"windowName\":\"前门上玻璃\",\"backDoorPrefix.doorName\":\"后门\",\"backDoorPrefix.windowName\":\"后门上玻璃\",\"backDoorPrefix.lowerWindowPrefix.IWindowType\":\"window_实现1\",\"backDoorPrefix.lowerWindowPrefix.windowName\":\"后门下玻璃\",\"backDoorPrefix.lowerWindowPrefix.iMaterialPrefix.IMaterialType\":\"纯天然材料\",\"backDoorPrefix.lowerWindowPrefix.iMaterialPrefix.materialName\":\"后门下玻璃纯天然材料\"}";
+
+
+        String actual = gson.toJson(classRoom);
+        System.out.println("ObjectTOJson actual=" + actual );
+        System.out.println("ObjectTOJson expect=" + expectedJson );
+
+        Assert.assertEquals(actual, expectedJson, "ObjectTOJson checkError not equal ");
+
+        ClassChangedRoom classChangedRoom = gson.fromJson(expectedJson, ClassChangedRoom.class);
+
+        System.out.println("JsonToObject actual=" + classChangedRoom);
+        System.out.println("JsonToObject expect=" + classRoom);
+
+        String jsonFromClassChangedRoom = gson.toJson(classChangedRoom);
+        Assert.assertEquals(jsonFromClassChangedRoom, expectedJson, "ByChangeClass check error");
+
+
     }
 
     public static class PersonCircle {
@@ -278,6 +341,37 @@ public class FlatReflectionTypeAdapterFactoryTest {
         PersonFlattened personFlattened = gson.fromJson(expectedJson, PersonFlattened.class);
         Assert.assertEquals(personFlattened.toString(),personFlat.toString(),  "JsonToObject check error");
 
+    }
+
+
+    private static class ClassChangedRoom {
+        protected String name;
+
+        protected String doorName;
+        // 上玻璃
+        protected Window upperWindow;
+        // 下玻璃
+        @FieldNamePrefix(value = "lowerWindowPrefix")
+        private IWindow ilowerWindow;
+
+        @FieldNamePrefix(value = "backDoorPrefix")
+        protected Door backDoor;
+
+
+        @Override
+        public String toString() {
+            return ToStringBuilder.reflectionToString(this,ToStringStyle.MULTI_LINE_STYLE);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return EqualsBuilder.reflectionEquals(this, o);
+        }
+
+        @Override
+        public int hashCode() {
+            return HashCodeBuilder.reflectionHashCode(this);
+        }
     }
 
 
@@ -366,7 +460,7 @@ public class FlatReflectionTypeAdapterFactoryTest {
         protected Window upperWindow;
         //下玻璃
         @FieldNamePrefix(value = "lowerWindowPrefix")
-        private IWindow lowerWindow;
+        private IWindow ilowerWindow;
         @Override
         public String toString() {
             return ToStringBuilder.reflectionToString(this, ToStringStyle.MULTI_LINE_STYLE);
@@ -410,7 +504,7 @@ public class FlatReflectionTypeAdapterFactoryTest {
         protected String windowName;
 
         @FieldNamePrefix(value ="iMaterialPrefix")
-        IMaterial material;
+        IMaterial imaterial;
         public Window(){}
 
         @Override
