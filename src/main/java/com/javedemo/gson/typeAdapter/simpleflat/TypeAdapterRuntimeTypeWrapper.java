@@ -46,10 +46,10 @@ public class TypeAdapterRuntimeTypeWrapper<T> extends TypeAdapter<T> {
         if (runtimeType != type) {
             TypeAdapter runtimeTypeAdapter = context.getAdapter(TypeToken.get(runtimeType));
             // 优先使用运行期的类去判断TypeAdapter
-            if (!(runtimeTypeAdapter instanceof FlatReflectionTypeAdapterFactory.Adapter)) {
+            if (!(runtimeTypeAdapter instanceof FlatReflectionTypeAdapterFactory.FlatReflectionTypeAdapter)) {
                 // The user registered a type adapter for the runtime type, so we will use that
                 chosen = runtimeTypeAdapter;
-            } else if (!(delegate instanceof FlatReflectionTypeAdapterFactory.Adapter)) {
+            } else if (!(delegate instanceof FlatReflectionTypeAdapterFactory.FlatReflectionTypeAdapter)) {
                 // The user registered a type adapter for Base class, so we prefer it over the
                 // reflective type adapter for the runtime type
                 chosen = delegate;
@@ -68,4 +68,5 @@ public class TypeAdapterRuntimeTypeWrapper<T> extends TypeAdapter<T> {
         boolean canBeMoreSpecific = type == Object.class || type instanceof TypeVariable<?> || type instanceof Class<?>;
         return value != null && canBeMoreSpecific ? value.getClass() : type;
     }
+
 }
