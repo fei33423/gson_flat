@@ -2,7 +2,6 @@ package com.javedemo.gson.typeAdapter.simpleflat;
 
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
-import com.google.gson.internal.bind.ReflectiveTypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -35,19 +34,22 @@ public class NonPrivateTypeAdapterRuntimeTypeWrapper<T> extends TypeAdapter<T> {
     @Override
     public void write(JsonWriter out, T value) throws IOException {
         // Order of preference for choosing type adapters
-        // First preference: a type adapter registered for the runtime type
-        // Second preference: a type adapter registered for the declared type
-        // Third preference: reflective type adapter for the runtime type (if it is a sub class of the declared type)
-        // Fourth preference: reflective type adapter for the declared type
+        // 第一选择First preference: a type adapter registered for the runtime type
+        // 第二选择Second preference: a type adapter registered for the declared type
+        // 第三选择Third preference: reflective type adapter for the runtime type (if it is a sub class of the declared type)
+        // 第四选择Fourth preference: reflective type adapter for the declared type
 
         TypeAdapter chosen = delegate;
         Type runtimeType = getRuntimeTypeIfMoreSpecific(type, value);
+
+        // 运行期类型 和 静态类型不符合, 常见与接口或者定义父类,运行期子类赋值
         if (runtimeType != type) {
             TypeAdapter runtimeTypeAdapter = context.getAdapter(TypeToken.get(runtimeType));
-            if (!(runtimeTypeAdapter instanceof ReflectiveTypeAdapterFactory.Adapter)) {
+            // 优先使用运行期的类去判断TypeAdapter
+            if (!(runtimeTypeAdapter instanceof SimpleGsonFlatSupport.Adapter)) {
                 // The user registered a type adapter for the runtime type, so we will use that
                 chosen = runtimeTypeAdapter;
-            } else if (!(delegate instanceof ReflectiveTypeAdapterFactory.Adapter)) {
+            } else if (!(delegate instanceof SimpleGsonFlatSupport.Adapter)) {
                 // The user registered a type adapter for Base class, so we prefer it over the
                 // reflective type adapter for the runtime type
                 chosen = delegate;

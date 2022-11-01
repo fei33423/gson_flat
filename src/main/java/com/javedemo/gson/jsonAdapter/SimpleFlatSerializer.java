@@ -74,7 +74,7 @@ public class SimpleFlatSerializer {
 //
 //                if (adapter!=null){
 //                    Object fieldValue = context.deserialize(entry.getValue(), field.getType());
-//                    ReflectionUtil.setFieldValue(field, object,fieldValue);
+//                    ReflectionUti.setFieldValue(field, object,fieldValue);
 //                    iterator.remove();
 //                    continue;
 //                }

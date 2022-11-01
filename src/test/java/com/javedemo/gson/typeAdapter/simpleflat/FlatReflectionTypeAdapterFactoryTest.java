@@ -1,24 +1,50 @@
 package com.javedemo.gson.typeAdapter.simpleflat;
 
 import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import com.javedemo.gson.jsonAdapter.FieldNamePrefix;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
-public class GsonFlatSupportTest {
-    private final Gson gson = new GsonBuilder().registerTypeAdapter(IItem.class, new InterfaceAdapter()).create();
+public class FlatReflectionTypeAdapterFactoryTest {
+    private final Gson gson = new GsonBuilder().registerTypeAdapterFactory( new IPartAdapterFactory()).create();
+//    private final Gson gson = new GsonBuilder().create();
 
     {
-        GsonFlatSupport.injectInto(gson);
+        Map<Class, FlatReflectionTypeAdapterFactory.InterfaceFieldParser> map=new HashMap();
+        map.put(IPart.class,new IPartFieldParser());
+        FlatReflectionTypeAdapterFactory.injectInto(gson,map );
     }
 
 
     private final String expectedJsonOriginal = "{\"name\":\"Douglas\",\"bag\":{\"itemName\":\"Brush\",\"part\":{\"partName\":\"Battery\"}}}";
 
+    public static class IPartFieldParser implements FlatReflectionTypeAdapterFactory.InterfaceFieldParser{
+
+        @Override
+        public FlatReflectionTypeAdapterFactory.InterfaceBoundedField getBoundedFildsForWrite(FlatReflectionTypeAdapterFactory flatReflectionTypeAdapterFactory) {
+            FlatReflectionTypeAdapterFactory.InterfaceBoundedField partField=new FlatReflectionTypeAdapterFactory.InterfaceBoundedField();
+            flatReflectionTypeAdapterFactory.buildBoundFields(flatReflectionTypeAdapterFactory.gson,null,new ArrayList<>());
+            return partField;
+        }
+
+
+        @Override
+        public Map<String, FlatReflectionTypeAdapterFactory.InterfaceBoundedField> getBoundedFildsForRead(FlatReflectionTypeAdapterFactory flatReflectionTypeAdapterFactory) {
+            HashMap<String, FlatReflectionTypeAdapterFactory.InterfaceBoundedField> stringInterfaceBoundedFieldHashMap = new HashMap<>();
+            return stringInterfaceBoundedFieldHashMap;
+        }
+    }
 
     @Test
     public void testPersonToJsonByOriginalGson() {
@@ -64,23 +90,32 @@ public class GsonFlatSupportTest {
     }
 
 
+    /**
+     * SimpleGsonFlatSupport的问题是 无法对接口进行平铺.
+     * 主要原因是 静态分析时无法进一步对接口解析出字段. 只能中断在接口这里.
+     * 把接口作为Path.
+     */
     @Test
-    public void testPersonWithTwoBag() {
+    public void testPersonWithThreeBagAndInterface() {
 
 
         Person person = getPersonWithTwoBag();
 
 
-        String expectedJson = "{\"name\":\"Douglas\",\"itemName\":\"Brush\",\"partName\":\"Battery\",\"bag2.itemName\":\"Brush\",\"bag2.partName\":\"Battery\",\"bag3.bag3\":{\"itemName\":\"Brush\",\"partName\":\"Battery\"}}";
+        String expectedJson = "{\"name\":\"Douglas\",\"itemName\":\"Brush\",\"partName\":\"Battery\",\"bag2.itemName\":\"Brush\",\"bag2.partName\":\"Battery\",\"bag3.bag3\":{\"IItemType\":\"Item\",\"itemName\":\"Brush\",\"partName\":\"Battery\"}}";
 
 
         String actual = gson.toJson(person);
-        System.out.println("JsonToObject actual=" + actual+"\n person=" + person );
+        System.out.println("JsonToObject actual=" + actual );
+        System.out.println("JsonToObject expect=" + expectedJson );
+
         Assert.assertEquals(actual, expectedJson, "JsonToObject checkError ");
 
 
         Person actualPerson = gson.fromJson(expectedJson, Person.class);
         System.out.println("ObjectTOJson actual=" + actualPerson);
+        System.out.println("ObjectTOJson exprct=" + person);
+
         Assert.assertEquals(person.toString(), person.toString(), "ObjectTOJson");
     }
 
@@ -94,7 +129,7 @@ public class GsonFlatSupportTest {
         personWithTwoBag.bag.part = new Part();
         personWithTwoBag.bag.part.partName = "Battery";
         personWithTwoBag.bag2 = personWithTwoBag.bag;
-        personWithTwoBag.bag3 = personWithTwoBag.bag;
+        personWithTwoBag.bag2.part2 = personWithTwoBag.bag.part;
 
         return personWithTwoBag;
     }
@@ -184,8 +219,7 @@ public class GsonFlatSupportTest {
         protected Item bag;
         @FieldNamePrefix(value = "bag2")
         protected Item bag2;
-        @FieldNamePrefix(value = "bag3")
-        private IItem bag3;
+
 
         @Override
         public String toString() {
@@ -194,35 +228,67 @@ public class GsonFlatSupportTest {
 
     }
 
-    private static interface IItem {
+    private static interface IPart {
 
     }
-
-    final class InterfaceAdapter implements JsonSerializer<IItem>, JsonDeserializer<IItem> {
+    public static class IPartAdapterFactory implements TypeAdapterFactory{
 
         @Override
-        public IItem deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+        public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
+
+            if (!type.getRawType().equals(IPart.class)){
+                return null;
+            }
+
+            return new TypeAdapter<T>(){
+                @Override
+                public void write(JsonWriter out, T value) throws IOException {
+
+                    out.name("itemType").value(value.getClass().getName());
+//                    TypeAdapter adapter = gson.getAdapter(value.getClass());
+//                    adapter.write(out, value);
+                }
+
+                @Override
+                public T read(JsonReader in) throws IOException {
+                    String name = in.nextName();
+                    Class type = null;
+                    if (name == Part.class.getName()){
+                        type= Part.class;
+                    }
+                    TypeAdapter<Item> adapter = gson.getAdapter(type);
+                    return (T) adapter.read(in);
+                }
+            };
+        }
+    }
+
+    final class InterfaceAdapter implements JsonSerializer<IPart>, JsonDeserializer<IPart> {
+
+        @Override
+        public IPart deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
             JsonObject jsonElement= (JsonObject) json;
             JsonElement iItemType = jsonElement.get("IItemType");
-            return context.deserialize(json,Item.class);
+            return context.deserialize(jsonElement,Item.class);
         }
 
         @Override
-        public JsonElement serialize(IItem src, Type typeOfSrc, JsonSerializationContext context) {
+        public JsonElement serialize(IPart src, Type typeOfSrc, JsonSerializationContext context) {
             JsonObject jsonElement=new JsonObject();
             jsonElement.addProperty( "IItemType",src.getClass().getSimpleName());
             JsonObject jsonElement1 = (JsonObject) context.serialize(src);
             jsonElement1.entrySet().stream().forEach(item->{ jsonElement.add(item.getKey(),item.getValue());});
 
-            return jsonElement1;
+            return jsonElement;
         }
     }
 
 
-    private static class Item  implements IItem{
+    private static class Item   {
         protected String itemName;
         protected Part part;
-
+        @FieldNamePrefix(value = "part")
+        private IPart part2;
         @Override
         public String toString() {
             return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE);
@@ -230,7 +296,7 @@ public class GsonFlatSupportTest {
     }
 
 
-    private static class Part {
+    private static class Part implements IPart{
         protected String partName;
 
         @Override
