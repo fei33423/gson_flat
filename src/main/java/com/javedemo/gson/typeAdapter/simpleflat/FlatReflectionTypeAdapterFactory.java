@@ -23,7 +23,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Same as {@link ReflectiveTypeAdapterFactory}
+ * 替换原来的ReflectiveTypeAdapterFactory ,实现平铺序列化/反序列化
+ * Same as {@link }
  * Reflectively inject itself into existing {@link Gson} by replacing {@link ReflectiveTypeAdapterFactory} there.
  * <p>
  * Usage:

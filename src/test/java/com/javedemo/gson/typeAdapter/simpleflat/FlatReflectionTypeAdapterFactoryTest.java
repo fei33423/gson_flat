@@ -31,7 +31,6 @@ public class FlatReflectionTypeAdapterFactoryTest {
     }
 
 
-    private final String expectedJsonOriginal = "{\"name\":\"Douglas\",\"bag\":{\"itemName\":\"Brush\",\"part\":{\"partName\":\"Battery\"}}}";
 
     public static class IPartFieldParser implements FlatReflectionTypeAdapterFactory.InterfaceFieldParser{
 
@@ -99,6 +98,8 @@ public class FlatReflectionTypeAdapterFactoryTest {
     public void testPersonToJsonByOriginalGson() {
         String actual = new Gson().toJson(getPerson());
         System.out.println("actual=" + actual);
+         String expectedJsonOriginal = "{\"name\":\"教室\",\"frontDoor\":{\"doorName\":\"前门\",\"upperWindow\":{\"windowName\":\"前门上玻璃\"}},\"backDoor\":{\"doorName\":\"后门\",\"upperWindow\":{\"windowName\":\"后门上玻璃\",\"material\":{\"materialName\":\"后门下玻璃天然材料\"}},\"lowerWindow\":{\"windowName\":\"后门上玻璃\"}}}";
+
 
         Assert.assertEquals(actual, expectedJsonOriginal);
     }
@@ -108,7 +109,7 @@ public class FlatReflectionTypeAdapterFactoryTest {
     public void testPerson() {
         ClassRoom person = getPerson();
 
-        String expectedJson = getExpectedJson();
+        String expectedJson = "{\"name\":\"教室\",\"doorName\":\"前门\",\"windowName\":\"前门上玻璃\",\"backDoorPrefix.doorName\":\"后门\",\"backDoorPrefix.windowName\":\"后门上玻璃\",\"backDoorPrefix.iMaterialPrefix.IMaterialType\":\"纯天然材料\",\"backDoorPrefix.iMaterialPrefix.materialName\":\"后门下玻璃天然材料\",\"backDoorPrefix.iMaterialPrefix.backDoorPrefix.lowerWindowPrefix.IWindowType\":\"window_实现1\",\"backDoorPrefix.iMaterialPrefix.backDoorPrefix.lowerWindowPrefix.windowName\":\"后门上玻璃\"}";
 
 
         String actual = gson.toJson(person);
@@ -118,23 +119,32 @@ public class FlatReflectionTypeAdapterFactoryTest {
 
         ClassRoom actualPerson = gson.fromJson(expectedJson, ClassRoom.class);
         System.out.println("JsonToObject actualPerson=" + actualPerson);
-        Assert.assertEquals(actualPerson.toString(), person.toString(), "JsonToObject check error");
+        Assert.assertEquals(actualPerson, person, "JsonToObject check error");
     }
 
-    private String getExpectedJson() {
-        return "{\"name\":\"Douglas\",\"itemName\":\"Brush\",\"partName\":\"Battery\"}";
-    }
 
     private ClassRoom getPerson() {
         ClassRoom person = new ClassRoom();
 
 
-        person.name = "Douglas";
+        person.name = "教室";
         person.frontDoor = new Door();
-        person.frontDoor.doorName = "Brush";
+        person.frontDoor.doorName = "前门";
         person.frontDoor.upperWindow = new Window();
-        person.frontDoor.upperWindow.windowName = "Battery";
-//        person.bag2=person.bag;
+        person.frontDoor.upperWindow.windowName = "前门上玻璃";
+
+        person.backDoor=new Door();
+        person.backDoor.doorName="后门";
+        person.backDoor.upperWindow=new Window();
+        person.backDoor.upperWindow.windowName = "后门上玻璃";
+        person.backDoor.upperWindow.material =new NatureMaterial();
+        Window lowerWindow = new Window();
+        lowerWindow.windowName = "后门上玻璃";
+        person.backDoor.lowerWindow= lowerWindow;
+
+        NatureMaterial material = new NatureMaterial();
+        material.materialName="后门下玻璃天然材料";
+        person.backDoor.upperWindow.material = material;
         return person;
     }
 
@@ -262,11 +272,11 @@ public class FlatReflectionTypeAdapterFactoryTest {
         personFlat.partName = "Battery";
 
 
-        String expectedJson = getExpectedJson();
-        Assert.assertEquals(expectedJson, gson.toJson(personFlat), " ObjectToJson check error ");
+        String expectedJson = "{\"name\":\"Douglas\",\"itemName\":\"Brush\",\"partName\":\"Battery\"}";
+        Assert.assertEquals( gson.toJson(personFlat),expectedJson, " ObjectToJson check error ");
 
         PersonFlattened personFlattened = gson.fromJson(expectedJson, PersonFlattened.class);
-        Assert.assertEquals(personFlat.toString(), personFlattened.toString(), "JsonToObject check error");
+        Assert.assertEquals(personFlattened.toString(),personFlat.toString(),  "JsonToObject check error");
 
     }
 
