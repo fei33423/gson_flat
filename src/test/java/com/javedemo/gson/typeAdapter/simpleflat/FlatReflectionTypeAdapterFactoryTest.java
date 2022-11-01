@@ -379,6 +379,20 @@ public class FlatReflectionTypeAdapterFactoryTest {
     public static class NatureMaterial implements IMaterial{
 
         private String materialName;
+        @Override
+        public String toString() {
+            return ToStringBuilder.reflectionToString(this,ToStringStyle.MULTI_LINE_STYLE);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return EqualsBuilder.reflectionEquals(this, o);
+        }
+
+        @Override
+        public int hashCode() {
+            return HashCodeBuilder.reflectionHashCode(this);
+        }
 
     }
 

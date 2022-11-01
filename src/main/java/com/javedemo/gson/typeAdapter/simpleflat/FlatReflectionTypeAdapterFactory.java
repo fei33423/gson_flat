@@ -242,7 +242,7 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 
             try {
                 JsonObject jsonObject = (JsonObject) Streams.parse(in);
-                readFields(boundFields,"",instance, jsonObject);
+                readFields(boundFields, "", instance, jsonObject);
             } catch (
                     IllegalStateException e) {
                 throw new JsonSyntaxException(e);
@@ -253,16 +253,16 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
             return instance;
         }
 
-        private void readFields(Map<String, ObjectPathBoundedField> boundFields,String prefix, Object  instance, JsonObject jsonObject) throws IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
+        private void readFields(Map<String, ObjectPathBoundedField> boundFields, String prefix, Object instance, JsonObject jsonObject) throws IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
             Iterator<Map.Entry<String, JsonElement>> iterator = jsonObject.entrySet().iterator();
 
             while (iterator.hasNext()) {
                 Map.Entry<String, JsonElement> entry = iterator.next();
-                String name = entry.getKey();
+                String jsonKey = entry.getKey();
                 JsonElement jsonElement = entry.getValue();
                 //去除前缀. 特别是对多层接口对象静态嵌套.
-                String key = name.replaceFirst(StringUtils.isEmpty(prefix) ? "" : prefix + "\\.", "");
-                ObjectPathBoundedField pathField = boundFields.get(key);
+                jsonKey  = jsonKey.replaceFirst(StringUtils.isEmpty(prefix) ? "" : prefix + "\\.", "");
+                ObjectPathBoundedField pathField = boundFields.get(jsonKey);
 
 
                 if (pathField == null) {
@@ -276,56 +276,113 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
                 }
             }
             //对剩余的字段解析
-            fillRuntimeTypeObject(instance,prefix, jsonObject);
+            fillRuntimeTypeObject(boundFields, instance, prefix, jsonObject);
         }
 
-        private Object fillRuntimeTypeObject(Object instance, String prefix, JsonObject jsonObject) throws IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
+        private Object fillRuntimeTypeObject(Map<String, ObjectPathBoundedField> boundFields, Object instance, String prefix, JsonObject jsonObject) throws IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
             Iterator<Map.Entry<String, JsonElement>> iterator;
-            iterator = jsonObject.entrySet().iterator();
 
 
             JsonObject newJsonObject = new JsonObject();
+
+            Map<String,InterfaceBoundedField> dynamicFields =new HashMap<>();
+            Map<String,Object> dynamicFieldsInstance =new HashMap<>();
+
+            iterator = jsonObject.entrySet().iterator();
+
             while (iterator.hasNext()) {
                 Map.Entry<String, JsonElement> entry = iterator.next();
-                String name = entry.getKey();
-                name=StringUtils.isEmpty(prefix) ? name:name.replaceFirst(prefix+"\\.","") ;
-                String[] split = name.split("\\.");
-                String subfix = "";
-                String prefixTemp = name;
-                ObjectPathBoundedField pathField = null;
-                for (int index = split.length - 1; index >= 0; index--) {
-                    subfix = StringUtils.isEmpty(subfix) ? split[index] : split[index] + "." + subfix;
-                    prefixTemp = prefixTemp.replace("." + subfix, "");
-                    //在静态类解析的boundFields中,通过前缀匹配对应的 pathField
-                    pathField = boundFields.get(prefixTemp);
-                    if (pathField != null) {
-                        break;
-                    }
+                createDynamicFieldInfos(boundFields, instance, prefix, jsonObject, dynamicFields, dynamicFieldsInstance, entry);
+            }
+
+            for (String dynamicTypePrefix : dynamicFields.keySet()) {
+                iterator = jsonObject.entrySet().iterator();
+                InterfaceBoundedField interfaceBoundedField = dynamicFields.get(dynamicTypePrefix);
+                //创建动态类型的独有jsonObject
+                JsonObject dynamicFieldJsonObject = createDynamicFieldJsonObject(iterator, dynamicTypePrefix, interfaceBoundedField);
+                // 获取动态类型实例
+                Object dynamicInstance = dynamicFieldsInstance.get(dynamicTypePrefix);
+                //反序列化动态类型.
+                readFields(interfaceBoundedField.objectPathBoundedFields, dynamicTypePrefix, dynamicInstance, dynamicFieldJsonObject);
+            }
+
+
+            return instance;
+        }
+
+        private void createDynamicFieldInfos(Map<String, ObjectPathBoundedField> boundFields, Object instance, String prefix, JsonObject jsonObject, Map<String, InterfaceBoundedField> dynamicFields, Map<String, Object> dynamicFieldsInstance, Map.Entry<String, JsonElement> entry) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+            String jsonKey = entry.getKey();
+            //去掉前缀,获取到当前对象真正的key
+            String currentObjectJsonKey = StringUtils.isEmpty(prefix) ? jsonKey : jsonKey.replaceFirst(prefix + "\\.", "");
+            String[] split = currentObjectJsonKey.split("\\.");
+            String prefixTemp = "";
+            ObjectPathBoundedField pathField = null;
+            for (int index = 0; index <split.length; index++) {
+                prefixTemp = StringUtils.isEmpty(prefixTemp) ? split[index] :prefixTemp+"."+ split[index] ;
+                // 在静态类解析的boundFields中,通过前缀匹配对应的 pathField
+                pathField = boundFields.get(prefixTemp);
+                if (pathField != null) {
+                    break;
+                }
+            }
+
+            String dynamicTypePrefix = StringUtils.isEmpty(prefix) ? prefixTemp : prefix + "." + prefixTemp;
+
+            if (dynamicFields.containsKey(dynamicTypePrefix)){
+                return;
+            }
+
+            // 通过静态类匹配到的属性,进一步获取对应的动态类解析类
+            InterfaceFieldParser interfaceFieldParser = flatReflectionTypeAdapterFactory.dynamicFieldParser.get(pathField.lastField.getType());
+
+            // 通过解析类获取到动态类集合
+            DynamicTypeInterfaceBoundedField boundedFildsForRead = interfaceFieldParser.getBoundedFildsForRead(flatReflectionTypeAdapterFactory);
+
+            // 获取到动态类的typeName
+            String shortTypeKey = boundedFildsForRead.getTypeName();
+
+            // 通过前缀+typeName获取到 指定的 动态类型的类型值
+            String typeKey = dynamicTypePrefix + "." + shortTypeKey;
+            JsonElement typeValueJsonElement = jsonObject.get(typeKey);
+            if (typeValueJsonElement == null) {
+                throw new RuntimeException("typeValueJsonElement is null ,dynamicTypeKey=" + typeKey + ",shortTypeKey=" + shortTypeKey + ",name=" + currentObjectJsonKey);
+            }
+
+            // 通过动态类型的类型值获取到指定的 interfaceBoundedField
+            InterfaceBoundedField interfaceBoundedField = boundedFildsForRead.getMap().get(typeValueJsonElement.getAsString());
+
+            if (interfaceBoundedField == null) {
+                throw new RuntimeException("interfaceBoundedField is null ,typeClazz=" + pathField.lastField.getType() + ",dynamicType=" + typeValueJsonElement + ",dynamicTypeKey=" + typeKey + ",shortTypeKey=" + shortTypeKey + ",jsonKey=" + currentObjectJsonKey);
+            }
+
+            dynamicFields.put(dynamicTypePrefix,interfaceBoundedField);
+
+            // 根据class 构造  动态类的对象
+            Object fieldValue = interfaceBoundedField.getClazz().getConstructor().newInstance();
+
+            // 设置动态类对象到 上级对象中
+            pathField.setPathValue(instance, fieldValue);
+            dynamicFieldsInstance.put(dynamicTypePrefix, fieldValue);
+        }
+
+        private JsonObject createDynamicFieldJsonObject(Iterator<Map.Entry<String, JsonElement>> iterator, String dynamicTypePrefix, InterfaceBoundedField interfaceBoundedField) {
+            JsonObject dynamicFieldJsonObject = new JsonObject();
+
+            while (iterator.hasNext()){
+                Map.Entry<String, JsonElement> next = iterator.next();
+
+
+                if (next.getKey().equals(dynamicTypePrefix +"."+ interfaceBoundedField.typeName)){
+                    iterator.remove();
+                    continue;
                 }
 
-                // 通过静态类匹配到的属性,进一步获取对应的动态类解析类
-                InterfaceFieldParser interfaceFieldParser = flatReflectionTypeAdapterFactory.dynamicFieldParser.get(pathField.lastField.getType());
-
-                // 通过解析类获取到动态类集合
-                DynamicTypeInterfaceBoundedField boundedFildsForRead = interfaceFieldParser.getBoundedFildsForRead(flatReflectionTypeAdapterFactory);
-
-                // 获取到动态类的typeName
-                String typeName = boundedFildsForRead.getTypeName();
-                // 通过前缀+typeName获取到 指定的 动态类型的类型值
-                JsonElement typeValueJsonElement = jsonObject.get(prefixTemp + "." + typeName);
-                // 通过动态类型的类型值获取到指定的 InterfaceBoundedField
-                InterfaceBoundedField interfaceBoundedField = boundedFildsForRead.getMap().get(typeValueJsonElement.getAsString());
-
-                // 根据class 构造  动态类的对象
-                Object fieldValue = interfaceBoundedField.getClazz().getConstructor().newInstance();
-
-                // 设置动态类对象到 上级对象中
-                pathField.setPathValue(instance,fieldValue);
-
-                readFields(interfaceBoundedField.objectPathBoundedFields,prefix+"."+prefixTemp ,fieldValue,jsonObject);
+                if (next.getKey().contains(dynamicTypePrefix)){
+                    dynamicFieldJsonObject.add(next.getKey(),next.getValue());
+                }
 
             }
-            return instance;
+            return dynamicFieldJsonObject;
         }
 
         /**
@@ -361,14 +418,14 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 //            }
             out.beginObject();
             try {
-                writeField(boundFields,"",out, value);
+                writeField(boundFields, "", out, value);
             } catch (IllegalAccessException e) {
                 throw new AssertionError();
             }
             out.endObject();
         }
 
-        public void writeField(Map<String,ObjectPathBoundedField> boundFields, String prefix,JsonWriter writer, Object value) throws IllegalAccessException, IOException {
+        public void writeField(Map<String, ObjectPathBoundedField> boundFields, String prefix, JsonWriter writer, Object value) throws IllegalAccessException, IOException {
             for (ObjectPathBoundedField boundField : boundFields.values()) {
                 if (boundField.serialized) {
 
@@ -390,11 +447,11 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 
                         Object interfaceObject = boundField.getObject(value);
 
-                        if (interfaceObject==null){
+                        if (interfaceObject == null) {
                             continue;
                         }
                         String tempPrefix = Joiner.on(".").join(prefixs);
-                        prefix =StringUtils.isEmpty(prefix)? tempPrefix :prefix+"."+tempPrefix;
+                        prefix = StringUtils.isEmpty(prefix) ? tempPrefix : prefix + "." + tempPrefix;
 
 
                         writer.name(StringUtils.isEmpty(prefix) ? interfaceBoundedField.typeName : prefix + "." + interfaceBoundedField.typeName);
@@ -403,7 +460,7 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 
                         // 填充字段
                         Map<String, ObjectPathBoundedField> objectPathBoundedFields = interfaceBoundedField.objectPathBoundedFields;
-                        writeField(objectPathBoundedFields,prefix,writer,interfaceObject);
+                        writeField(objectPathBoundedFields, prefix, writer, interfaceObject);
 //                        for (ObjectPathBoundedField interfaceField : objectPathBoundedFields.values()) {
 //                            if (interfaceField.typeAdapter instanceof FlatReflectionTypeAdapter){
 //                                Object interfaceObjectOfInterface = interfaceField.getObject(interfaceObject);
@@ -416,10 +473,10 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 //                            }
 //                        }
                     } else {
-                        String name =StringUtils.isEmpty(prefix)? boundField.getName() :prefix+"."+boundField.getName();
+                        String name = StringUtils.isEmpty(prefix) ? boundField.getName() : prefix + "." + boundField.getName();
 
                         writer.name(name);
-                        boundField.write(this,writer, value);
+                        boundField.write(this, writer, value);
                     }
                 }
             }
@@ -429,8 +486,22 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
 
     public interface InterfaceFieldParser {
 
+        /**
+         * 要依赖flatReflectionTypeAdapterFactory进行解析.
+         * 懒惰加载
+         *
+         * @param flatReflectionTypeAdapterFactory
+         * @return
+         */
         InterfaceBoundedField getBoundedFildsForWrite(FlatReflectionTypeAdapterFactory flatReflectionTypeAdapterFactory);
 
+        /**
+         * 要依赖flatReflectionTypeAdapterFactory进行解析.
+         * 懒惰加载
+         *
+         * @param flatReflectionTypeAdapterFactory
+         * @return
+         */
         DynamicTypeInterfaceBoundedField getBoundedFildsForRead(FlatReflectionTypeAdapterFactory flatReflectionTypeAdapterFactory);
 
     }
@@ -527,11 +598,11 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
             this.isPrimitive = Primitives.isPrimitive(fieldType.getRawType());
             TypeAdapter<?> adapter = context.getAdapter(fieldType);
             this.typeAdapter = adapter;
-            List<String> list=Lists.newArrayList();
+            List<String> list = Lists.newArrayList();
             for (Field field : fieldPath) {
-                list.add(field.getDeclaringClass().getSimpleName()+"."+field.getName());
+                list.add(field.getDeclaringClass().getSimpleName() + "." + field.getName());
             }
-            fieldPathStr=Joiner.on("\n").join(list);
+            fieldPathStr = Joiner.on("\n").join(list);
         }
 
         public String getName() {
@@ -554,12 +625,12 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
         protected void write(FlatReflectionTypeAdapter adapter, JsonWriter writer, Object value) throws IOException, IllegalAccessException {
             value = getObject(value);
 
-                typeAdapter.write(writer, value);
+            typeAdapter.write(writer, value);
 
         }
 
         public Object getObject(Object value) throws IllegalAccessException {
-            if (value == null){
+            if (value == null) {
                 return null;
             }
             // find needed object by path. 层层推进,更换value,直到获取到该字段的真正的持有对象.
@@ -570,8 +641,8 @@ public class FlatReflectionTypeAdapterFactory implements TypeAdapterFactory {
             return value;
         }
 
-        protected void setPathValue( Object instanceToSetFileld,Object fieldValue) throws IllegalAccessException {
-            if (instanceToSetFileld==null){
+        protected void setPathValue(Object instanceToSetFileld, Object fieldValue) throws IllegalAccessException {
+            if (instanceToSetFileld == null) {
                 return;
             }
 
